@@ -270,6 +270,99 @@
 
   // ── Download ──────────────────────────────────────────────────────────────
 
+  // The saved file's name. One fixed name keeps the browser's download list
+  // and the share sheet predictable.
+  var PNG_NAME = 'homeroom-qr-code.png';
+
+  // Phones are where a plain anchor download of a blob: URL gets swallowed:
+  // a notification appears and no file is saved. Inside a frame (this page
+  // runs in the Homeroom app's iframe) it is the most likely of all.
+  function onPhone() {
+    return /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent);
+  }
+
+  function framed() {
+    try {
+      return window.self !== window.top;
+    } catch (err) {
+      return true;
+    }
+  }
+
+  function setCaption(text) {
+    caption.hidden = false;
+    caption.textContent = text;
+  }
+
+  function toastMessage(text) {
+    if (window.unNative && typeof window.unNative.toast === 'function') {
+      window.unNative.toast(text);
+    }
+  }
+
+  // The share sheet is the save path phones complete: it hands the image to
+  // the gallery or Files and its promise settles, so 'Saved' only shows once
+  // something was actually saved. Returns false when sharing is unavailable.
+  function sharePng(blob) {
+    if (!navigator.share || !navigator.canShare) return false;
+    var file;
+    try {
+      file = new File([blob], PNG_NAME, { type: 'image/png' });
+    } catch (err) {
+      return false;
+    }
+    try {
+      if (!navigator.canShare({ files: [file] })) return false;
+    } catch (err) {
+      return false;
+    }
+    navigator.share({ files: [file] }).then(function () {
+      toastMessage('Saved');
+    }, function (err) {
+      if (err && err.name === 'AbortError') return; // the user backed out
+      savePng(blob);
+    });
+    return true;
+  }
+
+  function savePng(blob) {
+    var url = URL.createObjectURL(blob);
+    var anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = PNG_NAME;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    if (!onPhone()) {
+      // Release the blob only after the download manager has taken the data;
+      // revoking it while the download starts is what left Android with a
+      // notification and no file.
+      setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+      toastMessage('Downloaded');
+      return;
+    }
+    // On a phone, inside a frame above all, the download may still have been
+    // swallowed: open the image in a new tab as well, where it can be saved
+    // by hand.
+    var inFrame = framed();
+    var tab = null;
+    if (inFrame) {
+      try {
+        tab = window.open(url, '_blank');
+      } catch (err) {
+        tab = null;
+      }
+    }
+    // Hold the blob for a minute when a tab is reading it; otherwise only
+    // long enough for the download manager to have taken the data.
+    setTimeout(function () { URL.revokeObjectURL(url); }, tab ? 60000 : 10000);
+    if (tab) {
+      setCaption('If no file was saved, the code is open in a new tab: press and hold it there to save it.');
+    } else if (inFrame) {
+      setCaption('Your browser blocked the download. Try again, or open QR Studio in a browser.');
+    }
+  }
+
   downloadBtn.addEventListener('click', function () {
     if (!currentCode) return;
     var quiet = 4;
@@ -290,29 +383,17 @@
         }
       }
     }
-    var name = (currentName || 'qr-code') + '.png';
     try {
       out.toBlob(function (blob) {
         if (!blob) {
-          caption.hidden = false;
-          caption.textContent = 'The download failed. Try again.';
+          setCaption('The download failed. Try again.');
           return;
         }
-        var url = URL.createObjectURL(blob);
-        var anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = name;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-        if (window.unNative && typeof window.unNative.toast === 'function') {
-          window.unNative.toast('Downloaded');
-        }
+        if (onPhone() && sharePng(blob)) return;
+        savePng(blob);
       }, 'image/png');
     } catch (err) {
-      caption.hidden = false;
-      caption.textContent = 'The download failed. Try again.';
+      setCaption('The download failed. Try again.');
     }
   });
 
