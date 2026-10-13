@@ -10,5 +10,22 @@
   "visibility": {
     "build": "public",
     "view": "public"
-  }
+  },
+  "tests": [
+    {
+      "name": "Main screen loads",
+      "path": "/",
+      "expectSelector": "#qr-form",
+      "expectText": "Your code appears here"
+    },
+    {
+      "id": "home.demo",
+      "name": "Staging demo shows a code",
+      "path": "/?demo=1",
+      "expectSelector": "#qr-canvas:not([hidden])",
+      "expectText": "Staging demo",
+      "visual": true,
+      "impact": ["public/**", "styles/**", "tailwind.config.js"]
+    }
+  ]
 }

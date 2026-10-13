@@ -60,32 +60,19 @@ the platform fixes the base commit, and none of this applies.
 
 ## Starter template
 
-The screen this app currently ships — the "Starter template" hero with
-the app's thumbnail tile and the plain-English note on how the app gets
-built (by asking Homeroom bot) — is placeholder content from the
-Homeroom starter template, not product intent.
+The starter template screen has been replaced: the first real version is
+QR Studio itself (see About). What still holds from the template:
 
-When the user asks for their first real feature, REPLACE the template
-screen rather than building alongside it:
-
-- remove the `usernode-starter-notice@1` block in `public/index.html`
-  (both sentinel comments and everything between them),
-- rewrite `README.md` to describe the actual app.
-
-Keep the `usernode-dev-console@1` forwarder `<script>` when rewriting the
-HTML — that block is platform infrastructure, not template content. So is
-the bridge `<script>`. The design kit is not placeholder either: build the
-real app with it, and fill in "## Design" below.
-
-The screen has a light and a dark look and follows the viewer's Homeroom
-theme, switching live when they change it: the theme `<script>` right after
-the bridge tag sets a `dark` class on `<html>`. Keep that script, and give
-everything you build both looks (the design kit's colour tokens carry both), unless one
-fixed look is the point of this app, like a game's own scene; then say so
-under "## Design" below. Unless a request asks for one, add
-no theme picker: the viewer's Homeroom setting is the control. "The
-platform's light/dark theme inside the app frame" in the platform
-conventions has the details.
+- Keep the `usernode-dev-console@1` forwarder `<script>`, the bridge
+  `<script>` and the theme `<script>` in `public/index.html` — they are
+  platform infrastructure, not template content.
+- The screen has a light and a dark look and follows the viewer's Homeroom
+  theme, switching live when they change it. Give everything both looks
+  (the design kit's colour tokens carry both), unless one fixed look is
+  the point of this app; then say so under "## Design" below. Unless a
+  request asks for one, add no theme picker: the viewer's Homeroom
+  setting is the control. "The platform's light/dark theme inside the app
+  frame" in the platform conventions has the details.
 
 If a rule below this line conflicts with the hosted conventions, the
 hosted conventions win. This file is **app-specific** — write down
@@ -97,24 +84,30 @@ tables you've marked private), etc.
 
 ## About QR STUDIO
 
-Make QR codes from links, text or contacts
-
-_(add a sentence or two more of product context here so Claude Code has a
-shared understanding of what this app is for)_
+Make QR codes from links, text or contacts. One screen: pick what the code
+is for (a link completed to `https://` for you, any text, or a small
+contact card encoded as vCard 3.0), tap Generate, and a scannable code
+appears in a scanner-style frame; Download PNG saves it. The whole point
+is privacy: encoding happens on the device in `public/qr.js` and nothing
+typed is stored — the app has no database tables at all.
 
 ## Design
 
-This app's look. The first real version fills in the blanks; every later
-change follows it, and updates it when a request changes the look on purpose.
+This app's look. Every later change follows it, and updates it when a
+request changes the look on purpose.
 
-- **Palette:** _(name the accent, any second colour and the neutrals, e.g.
-  "accent: tomato red; second: basil green; neutrals: warm greys")_
-- **Signature element:** _(the one thing on screen drawn from this app's
-  subject, which no other app would have)_
+- **Palette:** a near-white green-grey world (`ground` 244 245 243 /
+  14 16 15) with a single ink accent — `accent` equals `fg`, so the only
+  strong colour on screen is the scanner green (`scan` 21 128 61 /
+  74 222 128) of the corner brackets and focus ring. Neutrals: surface,
+  raised, muted, line all carry a slight green cast.
+- **Signature element:** the scanner frame — a 264px square with four
+  green corner brackets, like a barcode scanner's viewport. The QR square
+  inside is white with a 4px radius.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
-  _(change their sizes in `tailwind.config.js` if you must, not their number)_
-- **One fixed look:** _(only for an app drawn as its own scene, such as a
-  game: which look, and why. Otherwise delete this line.)_
+  (change their sizes in `tailwind.config.js` if you must, not their
+  number). The title is weight 750 with -0.02em letter spacing, system
+  sans throughout.
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components
@@ -139,6 +132,16 @@ Re-theme by changing the token values there, keeping every text pair at
 
 ## App-specific conventions
 
-_(optional — e.g. "all currency values stored as integer cents, not
-floats"; "the `posts` table is append-only"; "avoid adding new
-dependencies"; etc.)_
+- No database tables. Nothing a person types is stored or sent anywhere;
+  don't add persistence without a request that clearly wants it, and say
+  so to the requester when it would change the privacy story.
+- The QR encoder lives in `public/qr.js` on purpose — don't add a QR npm
+  package or a server-side encoding route. It is covered by
+  `test/qr.test.js`.
+- The QR itself is always `qr-ink` on `qr-paper` (black on white) in both
+  looks, so cameras can always scan it; only the page around it re-themes.
+- PNG downloads are drawn on an offscreen canvas at up to 1024px; keep
+  the four-module quiet zone in them.
+- Run `npm run build` after touching `styles/tailwind-input.css`,
+  `public/index.html` or `public/*.js` — the served stylesheet is
+  precompiled from them.

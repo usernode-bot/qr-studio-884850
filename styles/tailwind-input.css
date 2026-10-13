@@ -29,30 +29,36 @@
  */
 @layer base {
   :root {
-    --ground: 250 250 249;    /* the page */
+    --ground: 244 245 243;    /* the page */
     --surface: 255 255 255;   /* lists, cards, fields */
-    --raised: 245 245 244;    /* hovers, badges */
-    --fg: 28 25 23;           /* text */
-    --muted: 87 83 78;        /* secondary text */
-    --line: 231 229 228;      /* borders, dividers, skeletons */
-    --accent: 15 118 110;     /* the one accent */
+    --raised: 236 238 235;    /* hovers, badges */
+    --fg: 17 19 18;           /* text */
+    --muted: 82 87 84;        /* secondary text */
+    --line: 218 221 217;      /* borders, dividers, skeletons */
+    --accent: 17 19 18;       /* the one accent: ink, like the code itself */
     --on-accent: 255 255 255; /* text on the accent */
     --danger: 185 28 28;
     --on-danger: 255 255 255;
-    --focus: 13 148 136;      /* the keyboard focus ring */
+    --scan: 21 128 61;        /* the scanner's corner brackets */
+    --qr-paper: 255 255 255;  /* the code's white square, both looks */
+    --qr-ink: 0 0 0;          /* the code's dark modules, both looks */
+    --focus: 21 128 61;       /* the keyboard focus ring */
   }
   .dark {
-    --ground: 12 10 9;
-    --surface: 28 25 23;
-    --raised: 41 37 36;
-    --fg: 245 245 244;
-    --muted: 168 162 158;
-    --line: 68 64 60;
-    --accent: 45 212 191;
-    --on-accent: 4 47 46;
+    --ground: 14 16 15;
+    --surface: 26 29 27;
+    --raised: 38 42 40;
+    --fg: 238 240 237;
+    --muted: 160 166 162;
+    --line: 52 57 54;
+    --accent: 238 240 237;
+    --on-accent: 17 19 18;
     --danger: 248 113 113;
     --on-danger: 69 10 10;
-    --focus: 94 234 212;
+    --scan: 74 222 128;
+    --qr-paper: 255 255 255;
+    --qr-ink: 0 0 0;
+    --focus: 74 222 128;
   }
   /* el.hidden = true hides an element even when a class gives it a display
      (flex, the components below). */
@@ -109,6 +115,64 @@
   /* The label above a section: sentence case, never uppercase or tracked. */
   .section-label {
     @apply mb-2 px-1 text-small font-medium text-muted;
+  }
+
+  /* Field errors: one line under the field it is about, in danger. */
+  .field-error {
+    @apply px-1 text-small text-danger;
+  }
+  .field[aria-invalid='true'] {
+    @apply border-danger focus:ring-danger;
+  }
+
+  /* The Link / Text / Contact segmented control: three real radio buttons
+     dressed as one control. The radio itself is visually hidden but stays
+     focusable and screen-reader visible. */
+  .segmented {
+    @apply grid grid-cols-3 gap-1 rounded-lg border border-line bg-raised p-1;
+  }
+  .seg {
+    @apply relative flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1
+      rounded-md px-2 py-2 text-small font-medium text-muted select-none
+      focus-within:outline-none focus-within:ring-2 focus-within:ring-focus;
+  }
+  .seg svg {
+    @apply h-5 w-5;
+  }
+  .seg input {
+    @apply absolute h-px w-px opacity-0;
+  }
+  .seg.is-active {
+    @apply bg-surface text-fg shadow-sm;
+  }
+  .seg:hover {
+    @apply text-fg;
+  }
+
+  /* The scanner frame, this app's signature element: a square that reads as
+     a code scanner's viewport, with green corner brackets. The QR square
+     itself is white with a 4px radius in both looks — the code is always
+     scanned dark-on-white. */
+  .qr-frame {
+    @apply relative flex h-64 w-64 items-center justify-center p-3;
+  }
+  .qr-corner {
+    @apply absolute h-8 w-8 border-scan;
+  }
+  .qr-corner.tl { @apply left-0 top-0 rounded-tl-md border-l-4 border-t-4; }
+  .qr-corner.tr { @apply right-0 top-0 rounded-tr-md border-r-4 border-t-4; }
+  .qr-corner.bl { @apply bottom-0 left-0 rounded-bl-md border-b-4 border-l-4; }
+  .qr-corner.br { @apply bottom-0 right-0 rounded-br-md border-b-4 border-r-4; }
+  .qr-paper {
+    @apply flex h-full w-full items-center justify-center overflow-hidden rounded;
+    background-color: rgb(var(--qr-paper));
+  }
+  .qr-frame.is-stale .qr-paper {
+    @apply opacity-40;
+  }
+  .qr-frame.is-stale,
+  .qr-frame.is-stale .qr-corner {
+    @apply transition-opacity duration-200;
   }
 
   /* The states of anything that loads data. Show exactly one at a time:
