@@ -34,8 +34,10 @@ const GUEST_PUBLIC_KEY = (process.env.USERNODE_GUEST_JWT_PUBLIC_KEY || '')
 
 // Paths that stay open without authentication. Add a path here (and add it
 // with `app.get`/`app.post` below) if you deliberately want it public.
-// Everything else requires a valid platform-issued JWT.
-const PUBLIC_API_PATHS = new Set(['/health']);
+// Everything else requires a valid platform-issued JWT. /api/demo is here
+// because it only ever answers mock staging content (and demo: null in
+// production): there is nothing to protect.
+const PUBLIC_API_PATHS = new Set(['/health', '/api/demo']);
 
 app.use(express.json());
 
@@ -147,6 +149,22 @@ app.use((req, res, next) => {
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+// Staging demo content for `/?demo=1`: the browser script fetches this and
+// fills the screen so the populated screen can be seen in staging without
+// typing. Always answered (demo: null outside staging or without the
+// flag), never a 404 — a missing route would look like a broken app. The
+// sample details are obviously fake and nothing typed is ever stored.
+const DEMO = {
+  mode: 'link',
+  link: 'https://example.com/menu',
+  text: 'Meet at the north entrance at 6 pm. Bring a water bottle.',
+  contact: { name: 'Sam Example', phone: '+1 555 0100', email: 'sam@example.com' },
+};
+app.get('/api/demo', (req, res) => {
+  const demo = IS_STAGING && req.query.demo === '1' ? DEMO : null;
+  res.json({ demo });
+});
+
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
 // /favicon.ico (older browsers, direct visits) doesn't fall through to
@@ -192,9 +210,24 @@ app.get('*', (req, res) => {
 });
 
 async function start() {
-  const server = app.listen(port, () => console.log(`Listening on :${port}`));
+  server = app.listen(port, () => console.log(`Listening on :${port}`));
   // Let Envoy retire idle upstream connections at 60s, with a 15s margin.
   server.keepAliveTimeout = 75_000;
 }
+
+// Retire cleanly on SIGTERM/SIGINT (the platform stops containers this way):
+// stop taking connections, give in-flight ones a moment, close the pool.
+let server = null;
+function stop() {
+  if (!server) process.exit(0);
+  const done = () => {
+    if (pool) pool.end(() => process.exit(0));
+    else process.exit(0);
+  };
+  server.close(done);
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+process.on('SIGTERM', stop);
+process.on('SIGINT', stop);
 
 start().catch(err => { console.error(err); process.exit(1); });

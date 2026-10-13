@@ -54,14 +54,20 @@ module.exports = {
         'on-accent': token('on-accent'), // text on the accent
         danger: token('danger'),
         'on-danger': token('on-danger'),
+        scan: token('scan'), // the scanner's corner brackets
+        'qr-paper': token('qr-paper'), // the code's white square
+        'qr-ink': token('qr-ink'), // the code's dark modules
         focus: token('focus'), // the keyboard focus ring
+      },
+      fontFamily: {
+        sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       // The type scale: four sizes, and nothing in between.
       fontSize: {
         small: ['0.875rem', { lineHeight: '1.25rem' }],
         body: ['1rem', { lineHeight: '1.5rem' }],
         heading: ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],
-        title: ['1.75rem', { lineHeight: '2.25rem', fontWeight: '700' }],
+        title: ['1.75rem', { lineHeight: '2.25rem', fontWeight: '750', letterSpacing: '-0.02em' }],
       },
     },
   },
