@@ -84,12 +84,14 @@ tables you've marked private), etc.
 
 ## About QR STUDIO
 
-Make QR codes from links, text or contacts. One screen: pick what the code
-is for (a link completed to `https://` for you, any text, or a small
-contact card encoded as vCard 3.0), tap Generate, and a scannable code
+Make QR codes from links, text or contacts — or a link code with a picture
+from your device drawn in the middle (Image). One screen: pick what the code
+is for (a link completed to `https://` for you, any text, a small
+contact card encoded as vCard 3.0, or a link with a picture as its logo),
+tap Generate, and a scannable code
 appears in a scanner-style frame; Download PNG saves it. The whole point
 is privacy: encoding happens on the device in `public/qr.js` and nothing
-typed is stored — the app has no database tables at all.
+typed or chosen is stored — the app has no database tables at all.
 
 ## Design
 
@@ -140,6 +142,10 @@ Re-theme by changing the token values there, keeping every text pair at
   `test/qr.test.js`.
 - The QR itself is always `qr-ink` on `qr-paper` (black on white) in both
   looks, so cameras can always scan it; only the page around it re-themes.
+- The Image option's picture is drawn over the code, centred on a white
+  square of at most a fifth of the matrix's width, on `qr-paper` — never
+  inside the modules' data, never stored or uploaded. The encoder and its
+  error-correction level stay unchanged.
 - PNG downloads are drawn on an offscreen canvas at up to 1024px; keep
   the four-module quiet zone in them.
 - Run `npm run build` after touching `styles/tailwind-input.css`,
