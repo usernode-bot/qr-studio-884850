@@ -120,7 +120,7 @@
     <!-- Staging demo note (server says what ?demo=1 filled in) -->
     <p id="demo-note" hidden class="rounded-lg border border-line bg-surface px-3 py-2 text-small text-muted"></p>
 
-    <!-- Link / Text / Contact: real radio buttons, Link on load -->
+    <!-- Link / Text / Contact / Image: real radio buttons, Link on load -->
     <div class="segmented" role="radiogroup" aria-label="What the code is for">
       <label class="seg">
         <input type="radio" name="mode" value="link" checked>
@@ -136,6 +136,11 @@
         <input type="radio" name="mode" value="contact">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
         Contact
+      </label>
+      <label class="seg">
+        <input type="radio" name="mode" value="image">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg>
+        Image
       </label>
     </div>
 
@@ -170,6 +175,24 @@
         <p id="contact-email-error" class="field-error" hidden></p>
       </fieldset>
 
+      <!-- Image: a link code with a picture from this device drawn in the
+           middle. The picture stays on the device; the code holds only the
+           link. -->
+      <fieldset data-mode="image" hidden class="flex flex-col gap-2 border-0 p-0 m-0">
+        <label class="section-label mb-0">Picture</label>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="image-pick" type="button" class="btn-secondary">Choose picture</button>
+          <button id="image-remove" type="button" class="btn-secondary" hidden>Remove</button>
+        </div>
+        <input id="image-file" type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" tabindex="-1" aria-hidden="true">
+        <p id="image-name" hidden class="px-1 text-small text-muted"></p>
+        <p id="image-file-error" class="field-error" hidden></p>
+
+        <label for="image-link" class="section-label mb-0 mt-1">Link</label>
+        <input id="image-link" class="field" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. example.com/park-tickets">
+        <p id="image-link-error" class="field-error" hidden></p>
+      </fieldset>
+
       <button id="generate" type="submit" class="btn-primary h-12 w-full">Generate</button>
     </form>
 
@@ -193,7 +216,7 @@
       <button id="download" type="button" class="btn-secondary w-full" hidden>Download PNG</button>
     </section>
 
-    <p class="text-center text-small text-muted">Codes are made on your device. Nothing you type is saved.</p>
+    <p class="text-center text-small text-muted">Codes are made on your device. Nothing you type or choose is saved.</p>
   </main>
 </body>
 </html>

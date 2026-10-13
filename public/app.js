@@ -23,6 +23,8 @@
     'contact-name': document.getElementById('contact-name'),
     'contact-phone': document.getElementById('contact-phone'),
     'contact-email': document.getElementById('contact-email'),
+    'image-link': document.getElementById('image-link'),
+    'image-file': document.getElementById('image-file'),
   };
   var errors = {
     link: document.getElementById('link-error'),
@@ -30,6 +32,8 @@
     'contact-name': document.getElementById('contact-name-error'),
     'contact-phone': document.getElementById('contact-phone-error'),
     'contact-email': document.getElementById('contact-email-error'),
+    'image-link': document.getElementById('image-link-error'),
+    'image-file': document.getElementById('image-file-error'),
   };
   var fieldsets = {};
   document.querySelectorAll('fieldset[data-mode]').forEach(function (fs) {
@@ -40,6 +44,8 @@
   var currentCode = null;   // the rendered matrix
   var currentName = null;   // download file name without extension
   var currentBytes = null;  // what the current code encodes
+  var logoCanvas = null;    // the chosen picture, downscaled, in page memory
+  var logoMode = false;     // set in render(): the current code carries the picture
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -111,20 +117,31 @@
 
   // ── Validation: returns { bytes, name } or shows inline errors ───────────
 
+  // The rules for a link code, shared by Link mode and Image mode (which
+  // makes the same link code, with an optional picture in the middle).
+  function linkPayload(key) {
+    var raw = fields[key].value.trim();
+    if (!raw) { showError(key, 'Enter a link to make a code.'); return null; }
+    var href;
+    try {
+      href = normalizeLink(raw);
+    } catch (err) {
+      showError(key, "That doesn't look like a link. Try something like example.com/menu.");
+      return null;
+    }
+    return { text: href, name: fileBaseName(new URL(href)),
+      caption: 'Opens ' + cut(href.replace(/^https?:\/\//i, '').replace(/\/$/, ''), 40) };
+  }
+
   function buildPayload() {
     clearErrors();
     if (mode === 'link') {
-      var raw = fields.link.value.trim();
-      if (!raw) { showError('link', 'Enter a link to make a code.'); return null; }
-      var href;
-      try {
-        href = normalizeLink(raw);
-      } catch (err) {
-        showError('link', "That doesn't look like a link. Try something like example.com/menu.");
-        return null;
-      }
-      return { text: href, name: fileBaseName(new URL(href)),
-        caption: 'Opens ' + cut(href.replace(/^https?:\/\//i, '').replace(/\/$/, ''), 40) };
+      return linkPayload('link');
+    }
+    if (mode === 'image') {
+      // The picture is optional and is not part of the code: the code holds
+      // only the link.
+      return linkPayload('image-link');
     }
     if (mode === 'text') {
       var text = fields.text.value;
@@ -162,6 +179,27 @@
 
   // ── Rendering ─────────────────────────────────────────────────────────────
 
+  // The chosen picture, centred on a white square over the modules. The
+  // square covers at most a fifth of the matrix's width, so it never reaches
+  // the quiet zone or the finder patterns, and level M recovers what it
+  // covers easily.
+  function drawLogo(ctx, size, quiet, px, paper) {
+    if (!logoMode || !logoCanvas) return;
+    var m = size * px;
+    var b = Math.round(m / 5);
+    var x0 = Math.round(quiet * px + (m - b) / 2);
+    ctx.fillStyle = paper;
+    ctx.fillRect(x0, x0, b, b);
+    var inset = Math.max(1, Math.round(px / 2));
+    var box = b - inset * 2;
+    var scale = Math.min(box / logoCanvas.width, box / logoCanvas.height);
+    var dw = Math.max(1, Math.round(logoCanvas.width * scale));
+    var dh = Math.max(1, Math.round(logoCanvas.height * scale));
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(logoCanvas, x0 + (b - dw) / 2, x0 + (b - dh) / 2, dw, dh);
+    ctx.imageSmoothingEnabled = false;
+  }
+
   function drawMatrix(result) {
     var quiet = 4;
     var total = result.size + quiet * 2;
@@ -184,18 +222,28 @@
         }
       }
     }
+    drawLogo(ctx, result.size, quiet, px, tokenColor('qr-paper', '#ffffff'));
   }
 
   function render(result, payload) {
     currentCode = result;
     currentName = payload.name;
     currentBytes = payload.text;
+    logoMode = mode === 'image' && !!logoCanvas;
     drawMatrix(result);
     canvas.hidden = false;
     empty.hidden = true;
-    var label = mode === 'link' ? 'QR code linking to ' + payload.text
-      : mode === 'text' ? 'QR code holding the entered text'
-      : 'QR code for this contact card';
+    var label;
+    if (mode === 'image') {
+      label = 'QR code linking to ' + payload.text +
+        (logoMode ? ', with a picture in the middle' : '');
+    } else if (mode === 'link') {
+      label = 'QR code linking to ' + payload.text;
+    } else if (mode === 'text') {
+      label = 'QR code holding the entered text';
+    } else {
+      label = 'QR code for this contact card';
+    }
     canvas.setAttribute('aria-label', label);
     frame.classList.remove('is-stale');
     note.hidden = true;
@@ -217,7 +265,8 @@
       result = window.QR.encode(bytes);
     } catch (err) {
       var over = err && typeof err.overBy === 'number' ? err.overBy : 0;
-      showError(mode === 'link' ? 'link' : mode === 'text' ? 'text' : 'contact-name',
+      showError(mode === 'link' ? 'link' : mode === 'image' ? 'image-link'
+        : mode === 'text' ? 'text' : 'contact-name',
         "That's too long for one code." + (over ? ' Trim it by ' + over.toLocaleString() + ' characters.' : ''));
       return;
     }
@@ -262,6 +311,77 @@
     counter.classList.toggle('text-danger', bytes > 2000);
   }
   fields.text.addEventListener('input', updateCounter);
+
+  // ── The picture (Image mode): read on this device, never sent anywhere ───
+
+  var pickBtn = document.getElementById('image-pick');
+  var removeBtn = document.getElementById('image-remove');
+  var imageName = document.getElementById('image-name');
+  var fileInput = fields['image-file'];
+  var LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+  var FILE_ERROR = "That file isn't a picture. Choose a PNG, JPEG or WebP.";
+
+  pickBtn.addEventListener('click', function () {
+    fileInput.click();
+  });
+
+  removeBtn.addEventListener('click', function () {
+    logoCanvas = null;
+    fileInput.value = '';
+    imageName.hidden = true;
+    imageName.textContent = '';
+    removeBtn.hidden = true;
+    pickBtn.textContent = 'Choose picture';
+    errors['image-file'].hidden = true;
+    errors['image-file'].textContent = '';
+    fields['image-file'].removeAttribute('aria-invalid');
+    if (currentCode) {
+      frame.classList.add('is-stale');
+      note.textContent = 'You changed the details. Tap Generate to update this code.';
+      note.hidden = false;
+    }
+  });
+
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    errors['image-file'].hidden = true;
+    errors['image-file'].textContent = '';
+    fields['image-file'].removeAttribute('aria-invalid');
+    if (LOGO_TYPES.indexOf(file.type) === -1) {
+      showError('image-file', FILE_ERROR);
+      fileInput.value = '';
+      return; // any previous picture stays as it was
+    }
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      // Downscale once, so redraws and the 1024px PNG stay cheap.
+      var longest = Math.max(img.naturalWidth, img.naturalHeight);
+      var side = Math.min(512, longest) / longest;
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * side));
+      c.height = Math.max(1, Math.round(img.naturalHeight * side));
+      var cx = c.getContext('2d');
+      cx.imageSmoothingEnabled = true;
+      cx.imageSmoothingQuality = 'high';
+      cx.drawImage(img, 0, 0, c.width, c.height);
+      logoCanvas = c;
+      imageName.textContent = cut(file.name, 40);
+      imageName.hidden = false;
+      pickBtn.textContent = 'Change picture';
+      removeBtn.hidden = false;
+      // Reset so picking the same file again still fires change.
+      fileInput.value = '';
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      showError('image-file', FILE_ERROR);
+      fileInput.value = '';
+    };
+    img.src = url;
+  });
 
   form.addEventListener('submit', function (event) {
     event.preventDefault();
@@ -383,6 +503,7 @@
         }
       }
     }
+    drawLogo(ctx, currentCode.size, quiet, scale, '#ffffff');
     try {
       out.toBlob(function (blob) {
         if (!blob) {

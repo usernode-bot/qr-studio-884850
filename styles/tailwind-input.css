@@ -125,11 +125,11 @@
     @apply border-danger focus:ring-danger;
   }
 
-  /* The Link / Text / Contact segmented control: three real radio buttons
-     dressed as one control. The radio itself is visually hidden but stays
-     focusable and screen-reader visible. */
+  /* The Link / Text / Contact / Image segmented control: four real radio
+     buttons dressed as one control. The radio itself is visually hidden but
+     stays focusable and screen-reader visible. */
   .segmented {
-    @apply grid grid-cols-3 gap-1 rounded-lg border border-line bg-raised p-1;
+    @apply grid grid-cols-4 gap-1 rounded-lg border border-line bg-raised p-1;
   }
   .seg {
     @apply relative flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1
