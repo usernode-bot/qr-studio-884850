@@ -63,6 +63,11 @@
       .slice(0, 40);
   }
 
+  // Cut to a maximum length, ending an over-long value with an ellipsis.
+  function cut(text, max) {
+    return text.length > max ? text.slice(0, max - 1) + '…' : text;
+  }
+
   // The token values ("R G B" triples) as CSS colours for canvas drawing.
   function tokenColor(name, fallback) {
     var raw = getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
@@ -118,7 +123,8 @@
         showError('link', "That doesn't look like a link. Try something like example.com/menu.");
         return null;
       }
-      return { text: href, name: fileBaseName(new URL(href)) };
+      return { text: href, name: fileBaseName(new URL(href)),
+        caption: 'Opens ' + cut(href.replace(/^https?:\/\//i, '').replace(/\/$/, ''), 40) };
     }
     if (mode === 'text') {
       var text = fields.text.value;
@@ -130,7 +136,8 @@
         return null;
       }
       var base = slug(text.trim().split(/\s+/).slice(0, 3).join(' '));
-      return { text: text, name: 'qr-' + (base || 'text') };
+      return { text: text, name: 'qr-' + (base || 'text'),
+        caption: 'Shows the text: ' + cut(text.trim().split(/\r?\n/)[0], 40) };
     }
     // contact
     var name = fields['contact-name'].value.trim();
@@ -150,7 +157,7 @@
       showError('contact-name', "That's too long for one code. Shorten the details.");
       return null;
     }
-    return { text: card, name: 'qr-' + slug(name) };
+    return { text: card, name: 'qr-' + slug(name), caption: 'Adds ' + name + ' to contacts' };
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -193,10 +200,8 @@
     frame.classList.remove('is-stale');
     note.hidden = true;
     note.textContent = '';
-    var version = result.version;
-    var info = 'Version ' + version + ' \u00B7 ' + result.size + ' \u00D7 ' + result.size +
-      ' modules \u00B7 ready to scan';
-    caption.textContent = info;
+    caption.hidden = false;
+    caption.textContent = payload.caption;
     downloadBtn.hidden = false;
   }
 
@@ -234,6 +239,8 @@
   document.querySelectorAll('input[name="mode"]').forEach(function (radio) {
     radio.addEventListener('change', function () { setMode(radio.value); });
   });
+  // The markup starts with Link checked; mark its segment active on load too.
+  setMode(mode);
 
   // ── Stale state: any edit after a generate dims the old code ─────────────
 
@@ -287,6 +294,7 @@
     try {
       out.toBlob(function (blob) {
         if (!blob) {
+          caption.hidden = false;
           caption.textContent = 'The download failed. Try again.';
           return;
         }
@@ -303,6 +311,7 @@
         }
       }, 'image/png');
     } catch (err) {
+      caption.hidden = false;
       caption.textContent = 'The download failed. Try again.';
     }
   });
@@ -321,11 +330,13 @@
       fields['contact-email'].value = demo.contact.email;
     }
     var noteEl = document.getElementById('demo-note');
-    noteEl.textContent = 'Staging demo \u2014 this screen is filled with sample content.';
+    noteEl.innerHTML = '<strong class="font-semibold text-fg">Staging demo</strong>: ' +
+      'a sample link, text and contact are filled in.';
     noteEl.hidden = false;
     generate();
   }
 
+  var emptyHTML = empty.innerHTML;
   if (new URLSearchParams(location.search).get('demo') === '1') {
     empty.innerHTML = '<div class="skeleton h-20 w-20"></div>';
     var headers = {};
@@ -334,11 +345,11 @@
     fetch('/api/demo?demo=1', { headers: headers })
       .then(function (res) { return res.json(); })
       .then(function (body) {
-        empty.innerHTML = '<p>Your code appears here</p>';
+        empty.innerHTML = emptyHTML;
         if (body && body.demo) applyDemo(body.demo);
       })
       .catch(function () {
-        empty.innerHTML = '<p>Your code appears here</p>';
+        empty.innerHTML = emptyHTML;
       });
   }
 })();

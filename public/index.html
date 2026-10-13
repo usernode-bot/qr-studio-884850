@@ -104,7 +104,7 @@
   <script src="/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-ground text-fg">
-  <main class="mx-auto flex w-full max-w-md flex-col gap-6 px-4 pb-16 pt-8">
+  <main class="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-16 pt-8">
 
     <!-- Header -->
     <header class="flex items-center gap-3">
@@ -184,10 +184,11 @@
           <canvas id="qr-canvas" hidden role="img"></canvas>
           <div id="qr-empty" class="state-empty">
             <p>Your code appears here</p>
+            <p class="text-small">Fill in the details above and tap Generate.</p>
           </div>
         </div>
       </div>
-      <p id="qr-caption" aria-live="polite" class="min-h-5 text-center text-small text-muted"></p>
+      <p id="qr-caption" aria-live="polite" hidden class="text-center text-small text-muted"></p>
       <p id="qr-note" aria-live="polite" hidden class="text-center text-small text-muted"></p>
       <button id="download" type="button" class="btn-secondary w-full" hidden>Download PNG</button>
     </section>
