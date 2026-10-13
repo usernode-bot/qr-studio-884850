@@ -27,5 +27,10 @@
       "visual": true,
       "impact": ["public/**", "styles/**", "tailwind.config.js"]
     }
+  ],
+  "admins": [
+    "iqiyi",
+    "scraido2",
+    "Hendryfan"
   ]
 }
