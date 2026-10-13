@@ -10,5 +10,10 @@
   "visibility": {
     "build": "public",
     "view": "public"
-  }
+  },
+  "admins": [
+    "iqiyi",
+    "scraido2",
+    "Hendryfan"
+  ]
 }
