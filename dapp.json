@@ -1,0 +1,10 @@
+{
+  "description": "Make QR codes from links, text or contacts",
+  "icon": {
+    "emoji": "🔳"
+  },
+  "secrets": [],
+  "governance": {
+    "preset": "you_or_the_group"
+  }
+}
