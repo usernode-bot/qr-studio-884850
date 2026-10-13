@@ -6,5 +6,9 @@
   "secrets": [],
   "governance": {
     "preset": "you_or_the_group"
+  },
+  "visibility": {
+    "build": "public",
+    "view": "public"
   }
 }
