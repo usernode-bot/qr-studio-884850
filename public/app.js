@@ -396,7 +396,8 @@
 
   // Phones are where a plain anchor download of a blob: URL gets swallowed:
   // a notification appears and no file is saved. Inside a frame (this page
-  // runs in the Homeroom app's iframe) it is the most likely of all.
+  // runs in the Homeroom app's iframe) it is the most likely of all, so
+  // framed phones get the data: URL tab in savePng instead of a blob.
   function onPhone() {
     return /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent);
   }
@@ -445,42 +446,64 @@
     return true;
   }
 
+  // Each tap takes exactly one branch:
+  // - Desktop: plain anchor download of the blob.
+  // - Phone, not framed: plain anchor download too (the browser handles it).
+  // - Phone, framed (this page runs in the Homeroom app's iframe): no blob:
+  //   URL at all. One opened inside a frame belongs to the frame's storage
+  //   partition, so a new top-level tab cannot resolve it and renders
+  //   nothing. Instead open a blank tab and fill it with the PNG as a
+  //   data: URL, which the tab can show and long-press can save.
   function savePng(blob) {
-    var url = URL.createObjectURL(blob);
-    var anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = PNG_NAME;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    if (!onPhone()) {
+    if (!onPhone() || !framed()) {
+      var url = URL.createObjectURL(blob);
+      var anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = PNG_NAME;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       // Release the blob only after the download manager has taken the data;
       // revoking it while the download starts is what left Android with a
       // notification and no file.
       setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
-      toastMessage('Downloaded');
+      if (!onPhone()) toastMessage('Downloaded');
       return;
     }
-    // On a phone, inside a frame above all, the download may still have been
-    // swallowed: open the image in a new tab as well, where it can be saved
-    // by hand.
-    var inFrame = framed();
-    var tab = null;
-    if (inFrame) {
-      try {
-        tab = window.open(url, '_blank');
-      } catch (err) {
-        tab = null;
-      }
+    // Open the tab synchronously, as close to the tap as possible, so the
+    // phone's popup guard allows it; the blob is read into it afterwards.
+    var tab;
+    try {
+      tab = window.open('', '_blank');
+    } catch (err) {
+      tab = null;
     }
-    // Hold the blob for a minute when a tab is reading it; otherwise only
-    // long enough for the download manager to have taken the data.
-    setTimeout(function () { URL.revokeObjectURL(url); }, tab ? 60000 : 10000);
-    if (tab) {
-      setCaption('If no file was saved, the code is open in a new tab: press and hold it there to save it.');
-    } else if (inFrame) {
+    if (!tab) {
       setCaption('Your browser blocked the download. Try again, or open QR Studio in a browser.');
+      return;
     }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var doc = tab.document;
+      doc.title = PNG_NAME;
+      var img = doc.createElement('img');
+      img.src = reader.result; // data: URL, so the tab can render it
+      img.alt = 'QR code';
+      img.style.maxWidth = '100%';
+      doc.body.style.margin = '0';
+      doc.body.style.background = '#ffffff';
+      doc.body.style.display = 'flex';
+      doc.body.style.alignItems = 'center';
+      doc.body.style.justifyContent = 'center';
+      doc.body.style.minHeight = '100vh';
+      doc.body.appendChild(img);
+      setCaption('The code is open in a new tab: press and hold it there to save it.');
+    };
+    reader.onerror = function () {
+      tab.close();
+      setCaption('The download failed. Try again.');
+    };
+    reader.readAsDataURL(blob);
   }
 
   downloadBtn.addEventListener('click', function () {
