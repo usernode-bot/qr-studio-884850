@@ -1,6 +1,7 @@
 {
   "description": "Make QR codes from links, text or contacts",
   "icon": {
+    "image": "brand/icon.png",
     "emoji": "🔳"
   },
   "secrets": [],
