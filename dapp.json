@@ -23,10 +23,17 @@
       "id": "home.demo",
       "name": "Staging demo shows a code",
       "path": "/?demo=1",
-      "expectSelector": "#qr-canvas:not([hidden])",
+      "expectSelector": "#qr-actions:not([hidden])",
       "expectText": "Staging demo",
       "visual": true,
       "impact": ["public/**", "styles/**", "tailwind.config.js"]
+    },
+    {
+      "id": "home.demo.actions",
+      "name": "Staging demo shows Download SVG",
+      "path": "/?demo=1",
+      "expectSelector": "#download-svg",
+      "expectText": "Download SVG"
     }
   ],
   "admins": [
