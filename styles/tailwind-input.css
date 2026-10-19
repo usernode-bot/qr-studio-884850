@@ -167,9 +167,6 @@
     @apply flex h-full w-full items-center justify-center overflow-hidden rounded;
     background-color: rgb(var(--qr-paper));
   }
-  .qr-frame.is-stale .qr-paper {
-    @apply opacity-40;
-  }
   /* The empty hint sits on qr-paper, which stays white in both looks, so
      its text is fixed ink — the dark look's light fg would vanish on it.
      The sub-line under it is fixed muted (the light token's value). */
@@ -178,10 +175,6 @@
   }
   .qr-paper .state-empty p + p {
     color: rgb(82 87 84);
-  }
-  .qr-frame.is-stale,
-  .qr-frame.is-stale .qr-corner {
-    @apply transition-opacity duration-200;
   }
 
   /* The states of anything that loads data. Show exactly one at a time:

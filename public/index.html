@@ -149,7 +149,6 @@
       <fieldset data-mode="link" class="flex flex-col gap-2 border-0 p-0 m-0">
         <label for="link-input" class="section-label mb-0">Link</label>
         <input id="link-input" class="field" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. example.com/park-tickets">
-        <p id="link-error" class="field-error" hidden></p>
       </fieldset>
 
       <!-- Text -->
@@ -157,22 +156,18 @@
         <label for="text-input" class="section-label mb-0">Text</label>
         <textarea id="text-input" class="field" rows="5" placeholder="e.g. Wi-Fi password for the guest room"></textarea>
         <p id="text-counter" class="px-1 text-small text-muted"></p>
-        <p id="text-error" class="field-error" hidden></p>
       </fieldset>
 
       <!-- Contact -->
       <fieldset data-mode="contact" hidden class="flex flex-col gap-2 border-0 p-0 m-0">
         <label for="contact-name" class="section-label mb-0">Name</label>
         <input id="contact-name" class="field" type="text" autocomplete="off" placeholder="e.g. Sam Example">
-        <p id="contact-name-error" class="field-error" hidden></p>
 
         <label for="contact-phone" class="section-label mb-0 mt-1">Phone</label>
         <input id="contact-phone" class="field" type="tel" autocomplete="off" placeholder="e.g. +1 555 0100">
-        <p id="contact-phone-error" class="field-error" hidden></p>
 
         <label for="contact-email" class="section-label mb-0 mt-1">Email</label>
         <input id="contact-email" class="field" type="email" autocomplete="off" placeholder="e.g. sam@example.com">
-        <p id="contact-email-error" class="field-error" hidden></p>
       </fieldset>
 
       <!-- Image: a link code with a picture from this device drawn in the
@@ -190,10 +185,7 @@
 
         <label for="image-link" class="section-label mb-0 mt-1">Link</label>
         <input id="image-link" class="field" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. example.com/park-tickets">
-        <p id="image-link-error" class="field-error" hidden></p>
       </fieldset>
-
-      <button id="generate" type="submit" class="btn-primary h-12 w-full">Generate</button>
     </form>
 
     <!-- Preview: the scanner frame is this app's signature element -->
@@ -207,7 +199,7 @@
           <canvas id="qr-canvas" hidden role="img"></canvas>
           <div id="qr-empty" class="state-empty">
             <p>Your code appears here</p>
-            <p class="text-small">Fill in the details above and tap Generate.</p>
+            <p class="text-small">Fill in the details above and the code appears here.</p>
           </div>
         </div>
       </div>
