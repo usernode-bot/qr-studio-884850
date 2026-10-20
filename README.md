@@ -1,8 +1,8 @@
 # QR Studio
 
 Make QR codes from links, text or contacts, right in the browser. Type or
-paste, tap **Generate**, and a scannable code appears in a scanner-style
-frame; **Download PNG** saves it as an image.
+paste, and a scannable code appears in a scanner-style frame as soon as you
+stop typing; **Download PNG** saves it as an image.
 
 ## How it works
 

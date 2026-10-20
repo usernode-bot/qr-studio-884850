@@ -88,8 +88,8 @@ Make QR codes from links, text or contacts — or a link code with a picture
 from your device drawn in the middle (Image). One screen: pick what the code
 is for (a link completed to `https://` for you, any text, a small
 contact card encoded as vCard 3.0, or a link with a picture as its logo),
-tap Generate, and a scannable code
-appears in a scanner-style frame; Download PNG saves it. The whole point
+and a scannable code
+appears in a scanner-style frame as you type (about 300 ms after you stop); Download PNG saves it. The whole point
 is privacy: encoding happens on the device in `public/qr.js` and nothing
 typed or chosen is stored — the app has no database tables at all.
 

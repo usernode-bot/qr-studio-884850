@@ -11,7 +11,6 @@
   var canvas = document.getElementById('qr-canvas');
   var empty = document.getElementById('qr-empty');
   var paper = canvas ? canvas.parentElement : null;
-  var frame = document.querySelector('.qr-frame');
   var caption = document.getElementById('qr-caption');
   var note = document.getElementById('qr-note');
   var downloadBtn = document.getElementById('download');
@@ -19,7 +18,6 @@
   var copyBtn = document.getElementById('copy');
   var shareBtn = document.getElementById('share');
   var actions = document.getElementById('qr-actions');
-  var generateBtn = document.getElementById('generate');
 
   var fields = {
     link: document.getElementById('link-input'),
@@ -30,13 +28,9 @@
     'image-link': document.getElementById('image-link'),
     'image-file': document.getElementById('image-file'),
   };
+  // Only the picture's file error is red: it comes from something you chose,
+  // not something you are typing. Everything else is a hint under the frame.
   var errors = {
-    link: document.getElementById('link-error'),
-    text: document.getElementById('text-error'),
-    'contact-name': document.getElementById('contact-name-error'),
-    'contact-phone': document.getElementById('contact-phone-error'),
-    'contact-email': document.getElementById('contact-email-error'),
-    'image-link': document.getElementById('image-link-error'),
     'image-file': document.getElementById('image-file-error'),
   };
   var fieldsets = {};
@@ -57,13 +51,6 @@
     errors[key].textContent = message;
     errors[key].hidden = false;
     fields[key].setAttribute('aria-invalid', 'true');
-  }
-  function clearErrors() {
-    Object.keys(errors).forEach(function (key) {
-      errors[key].hidden = true;
-      errors[key].textContent = '';
-      fields[key].removeAttribute('aria-invalid');
-    });
   }
 
   function slug(text) {
@@ -119,26 +106,30 @@
     return 'qr-' + (slug(host) || 'link');
   }
 
-  // ── Validation: returns { bytes, name } or shows inline errors ───────────
+  // ── Validation: returns { payload } for a code, or { hint } for the ───────
+  //    small muted line under the frame. Nothing turns red while you type.
 
   // The rules for a link code, shared by Link mode and Image mode (which
   // makes the same link code, with an optional picture in the middle).
   function linkPayload(key) {
     var raw = fields[key].value.trim();
-    if (!raw) { showError(key, 'Enter a link to make a code.'); return null; }
+    if (!raw) return { hint: 'Type a link like example.com to see the code.' };
     var href;
     try {
       href = normalizeLink(raw);
     } catch (err) {
-      showError(key, "That doesn't look like a link. Try something like example.com/menu.");
-      return null;
+      return { hint: "That doesn't look like a link yet. Try something like example.com/menu." };
     }
-    return { text: href, name: fileBaseName(new URL(href)),
-      caption: 'Opens ' + cut(href.replace(/^https?:\/\//i, '').replace(/\/$/, ''), 40) };
+    var url = new URL(href);
+    // A bare word ("example") is not a link yet; wait for a domain with a dot.
+    if (url.hostname.indexOf('.') === -1) {
+      return { hint: "That doesn't look like a link yet. Try something like example.com/menu." };
+    }
+    return { payload: { text: href, name: fileBaseName(url),
+      caption: 'Opens ' + cut(href.replace(/^https?:\/\//i, '').replace(/\/$/, ''), 40) } };
   }
 
   function buildPayload() {
-    clearErrors();
     if (mode === 'link') {
       return linkPayload('link');
     }
@@ -149,36 +140,32 @@
     }
     if (mode === 'text') {
       var text = fields.text.value;
-      if (!text.trim()) { showError('text', 'Enter some text to make a code.'); return null; }
+      if (!text.trim()) return { hint: 'Type some text to see the code.' };
       var bytes = new TextEncoder().encode(text);
       if (bytes.length > MAX_BYTES) {
-        showError('text', "That's too long for one code. Trim it by " +
-          (bytes.length - MAX_BYTES).toLocaleString() + ' characters.');
-        return null;
+        return { hint: "That's too long for one code. Trim it by " +
+          (bytes.length - MAX_BYTES).toLocaleString() + ' characters.' };
       }
       var base = slug(text.trim().split(/\s+/).slice(0, 3).join(' '));
-      return { text: text, name: 'qr-' + (base || 'text'),
-        caption: 'Shows the text: ' + cut(text.trim().split(/\r?\n/)[0], 40) };
+      return { payload: { text: text, name: 'qr-' + (base || 'text'),
+        caption: 'Shows the text: ' + cut(text.trim().split(/\r?\n/)[0], 40) } };
     }
     // contact
     var name = fields['contact-name'].value.trim();
     var phone = fields['contact-phone'].value.trim();
     var email = fields['contact-email'].value.trim();
-    if (!name) { showError('contact-name', 'Enter a name for this contact.'); return null; }
+    if (!name) return { hint: 'Add a name and a phone or email to see the code.' };
     if (!phone && !email) {
-      showError('contact-phone', 'Add a phone number, an email, or both.');
-      return null;
+      return { hint: 'Add a phone number or an email to see the code.' };
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showError('contact-email', "That email doesn't look right.");
-      return null;
+      return { hint: 'Finish the email, like sam@example.com, to see the code.' };
     }
     var card = contactVCard(name, phone, email);
     if (new TextEncoder().encode(card).length > MAX_BYTES) {
-      showError('contact-name', "That's too long for one code. Shorten the details.");
-      return null;
+      return { hint: "That's too long for one code. Shorten the details." };
     }
-    return { text: card, name: 'qr-' + slug(name), caption: 'Adds ' + name + ' to contacts' };
+    return { payload: { text: card, name: 'qr-' + slug(name), caption: 'Adds ' + name + ' to contacts' } };
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -249,7 +236,6 @@
       label = 'QR code for this contact card';
     }
     canvas.setAttribute('aria-label', label);
-    frame.classList.remove('is-stale');
     note.hidden = true;
     note.textContent = '';
     caption.hidden = false;
@@ -257,25 +243,49 @@
     actions.hidden = false;
   }
 
-  function generate() {
-    var payload = buildPayload();
-    if (!payload) {
-      currentCode = null;
-      return;
-    }
-    var bytes = new TextEncoder().encode(payload.text);
+  // ── Live update: the code draws itself about 300 ms after typing stops ───
+
+  var timer = null;
+
+  // Nothing to encode yet: clear any code and show the small muted hint.
+  // The empty box stays; this is never the red error style.
+  function showHint(text) {
+    currentCode = null;
+    currentName = null;
+    currentBytes = null;
+    logoMode = false;
+    canvas.hidden = true;
+    canvas.removeAttribute('aria-label');
+    empty.hidden = false;
+    caption.hidden = true;
+    caption.textContent = '';
+    downloadBtn.hidden = true;
+    note.textContent = text;
+    note.hidden = false;
+  }
+
+  function updateNow() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    var r = buildPayload();
+    if (r.hint) { showHint(r.hint); return; }
+    var bytes = new TextEncoder().encode(r.payload.text);
     var result;
     try {
       result = window.QR.encode(bytes);
     } catch (err) {
       var over = err && typeof err.overBy === 'number' ? err.overBy : 0;
-      showError(mode === 'link' ? 'link' : mode === 'image' ? 'image-link'
-        : mode === 'text' ? 'text' : 'contact-name',
-        "That's too long for one code." + (over ? ' Trim it by ' + over.toLocaleString() + ' characters.' : ''));
+      showHint("That's too long for one code." +
+        (over ? ' Trim it by ' + over.toLocaleString() + ' characters.' : ''));
       return;
     }
-    render(result, payload);
-    document.getElementById('preview').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    render(result, r.payload);
+  }
+
+  // Keystrokes wait 300 ms after the last one; switches, Enter and picture
+  // changes update immediately instead.
+  function scheduleUpdate() {
+    clearTimeout(timer);
+    timer = setTimeout(updateNow, 300);
   }
 
   // ── Mode switching ────────────────────────────────────────────────────────
@@ -290,22 +300,22 @@
     });
   }
   document.querySelectorAll('input[name="mode"]').forEach(function (radio) {
-    radio.addEventListener('change', function () { setMode(radio.value); });
-  });
-  // The markup starts with Link checked; mark its segment active on load too.
-  setMode(mode);
-
-  // ── Stale state: any edit after a generate dims the old code ─────────────
-
-  Object.keys(fields).forEach(function (key) {
-    fields[key].addEventListener('input', function () {
-      if (currentCode) {
-        frame.classList.add('is-stale');
-        note.textContent = 'You changed the details. Tap Generate to update this code.';
-        note.hidden = false;
-      }
+    radio.addEventListener('change', function () {
+      setMode(radio.value);
+      updateNow(); // switching options redraws or hints straight away
     });
   });
+  // The markup starts with Link checked; mark its segment active on load and
+  // show what that option still needs.
+  setMode(mode);
+  updateNow();
+
+  // Keystrokes debounce; the file input is left out (its change event, not
+  // its input event, carries the picture).
+  ['link', 'text', 'contact-name', 'contact-phone', 'contact-email', 'image-link']
+    .forEach(function (key) {
+      fields[key].addEventListener('input', scheduleUpdate);
+    });
 
   // Text counter (bytes are what the encoder cares about)
   var counter = document.getElementById('text-counter');
@@ -339,11 +349,7 @@
     errors['image-file'].hidden = true;
     errors['image-file'].textContent = '';
     fields['image-file'].removeAttribute('aria-invalid');
-    if (currentCode) {
-      frame.classList.add('is-stale');
-      note.textContent = 'You changed the details. Tap Generate to update this code.';
-      note.hidden = false;
-    }
+    updateNow();
   });
 
   fileInput.addEventListener('change', function () {
@@ -378,6 +384,7 @@
       removeBtn.hidden = false;
       // Reset so picking the same file again still fires change.
       fileInput.value = '';
+      updateNow();
     };
     img.onerror = function () {
       URL.revokeObjectURL(url);
@@ -387,9 +394,10 @@
     img.src = url;
   });
 
+  // Enter in a field draws the code straight away, without the debounce.
   form.addEventListener('submit', function (event) {
     event.preventDefault();
-    generate();
+    updateNow();
   });
 
   // ── Download ──────────────────────────────────────────────────────────────
@@ -517,6 +525,9 @@
   // same offscreen canvas the old download handler drew, 1024px nominal,
   // fixed black on white with the picture (if any) drawn on top.
   function pngCanvas() {
+    // A keystroke within the last 300 ms: finish its update first, so the
+    // saved PNG matches what is in the field right now.
+    if (timer) updateNow();
     if (!currentCode) return null;
     var quiet = 4;
     var total = currentCode.size + quiet * 2;
@@ -563,6 +574,7 @@
   // from the code, no new package, and never through the share sheet (SVG
   // file sharing is poorly supported on phones).
   downloadSvgBtn.addEventListener('click', function () {
+    if (timer) updateNow();
     if (!currentCode) return;
     var options = {};
     if (logoMode && logoCanvas) {
@@ -662,7 +674,7 @@
     noteEl.innerHTML = '<strong class="font-semibold text-fg">Staging demo</strong>: ' +
       'a sample link, text and contact are filled in.';
     noteEl.hidden = false;
-    generate();
+    updateNow();
   }
 
   var emptyHTML = empty.innerHTML;
