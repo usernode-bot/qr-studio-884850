@@ -411,7 +411,58 @@
   // codewords, minus the 16-bit character count and the 4-bit mode, floored.
   var MAX_BYTES = 2331;
 
-  var QR = { encode: encode, MAX_BYTES: MAX_BYTES };
+  // ── SVG export ─────────────────────────────────────────────────────────────
+
+  // Serialise a code to SVG: fixed black on white, the same four-module
+  // quiet zone and nominal size as the PNG download, so what a camera sees
+  // matches what saves. Options: quiet (default 4), scale (the PNG's
+  // default), and an optional logo { href, width, height } drawn on a white
+  // square of a fifth of the matrix's width, inset half a module, fitted to
+  // keep the picture's aspect ratio — the same geometry drawLogo() uses.
+  function escapeAttr(value) {
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function toSvg(result, options) {
+    options = options || {};
+    var quiet = typeof options.quiet === 'number' ? options.quiet : 4;
+    var total = result.size + quiet * 2;
+    var scale = typeof options.scale === 'number' ? options.scale
+      : Math.max(1, Math.floor(1024 / total));
+    var parts = [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '"' +
+        ' width="' + (total * scale) + '" height="' + (total * scale) + '"' +
+        ' shape-rendering="crispEdges">',
+      '<rect width="' + total + '" height="' + total + '" fill="#ffffff"/>'
+    ];
+    var d = '';
+    for (var y = 0; y < result.size; y++) {
+      for (var x = 0; x < result.size; x++) {
+        if (result.modules[y][x]) d += 'M' + (x + quiet) + ' ' + (y + quiet) + 'h1v1h-1z';
+      }
+    }
+    parts.push('<path fill="#000000" d="' + d + '"/>');
+    if (options.logo) {
+      var b = result.size / 5;
+      var x0 = quiet + (result.size - b) / 2;
+      parts.push('<rect x="' + x0 + '" y="' + x0 + '" width="' + b + '" height="' + b + '" fill="#ffffff"/>');
+      var inset = 0.5;
+      var box = b - inset * 2;
+      var lw = options.logo.width || 1;
+      var lh = options.logo.height || 1;
+      var fit = Math.min(box / lw, box / lh);
+      var dw = lw * fit;
+      var dh = lh * fit;
+      parts.push('<image x="' + (x0 + (b - dw) / 2) + '" y="' + (x0 + (b - dh) / 2) + '"' +
+        ' width="' + dw + '" height="' + dh + '"' +
+        ' href="' + escapeAttr(options.logo.href) + '"' +
+        ' preserveAspectRatio="xMidYMid meet"/>');
+    }
+    parts.push('</svg>');
+    return parts.join('');
+  }
+
+  var QR = { encode: encode, toSvg: toSvg, MAX_BYTES: MAX_BYTES };
   if (typeof module !== 'undefined' && module.exports) module.exports = QR;
   else root.QR = QR;
 })(typeof self !== 'undefined' ? self : this);

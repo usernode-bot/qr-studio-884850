@@ -15,6 +15,10 @@
   var caption = document.getElementById('qr-caption');
   var note = document.getElementById('qr-note');
   var downloadBtn = document.getElementById('download');
+  var downloadSvgBtn = document.getElementById('download-svg');
+  var copyBtn = document.getElementById('copy');
+  var shareBtn = document.getElementById('share');
+  var actions = document.getElementById('qr-actions');
   var generateBtn = document.getElementById('generate');
 
   var fields = {
@@ -250,7 +254,7 @@
     note.textContent = '';
     caption.hidden = false;
     caption.textContent = payload.caption;
-    downloadBtn.hidden = false;
+    actions.hidden = false;
   }
 
   function generate() {
@@ -393,6 +397,7 @@
   // The saved file's name. One fixed name keeps the browser's download list
   // and the share sheet predictable.
   var PNG_NAME = 'homeroom-qr-code.png';
+  var SVG_NAME = 'homeroom-qr-code.svg';
 
   // Phones are where a plain anchor download of a blob: URL gets swallowed:
   // a notification appears and no file is saved. Inside a frame (this page
@@ -422,9 +427,10 @@
   }
 
   // The share sheet is the save path phones complete: it hands the image to
-  // the gallery or Files and its promise settles, so 'Saved' only shows once
-  // something was actually saved. Returns false when sharing is unavailable.
-  function sharePng(blob) {
+  // the gallery or Files and its promise settles, so the confirmation only
+  // shows once something was actually shared. Returns false when sharing is
+  // unavailable.
+  function sharePng(blob, doneText) {
     if (!navigator.share || !navigator.canShare) return false;
     var file;
     try {
@@ -438,10 +444,10 @@
       return false;
     }
     navigator.share({ files: [file] }).then(function () {
-      toastMessage('Saved');
+      toastMessage(doneText);
     }, function (err) {
       if (err && err.name === 'AbortError') return; // the user backed out
-      savePng(blob);
+      saveFile(blob, PNG_NAME);
     });
     return true;
   }
@@ -452,14 +458,15 @@
   // - Phone, framed (this page runs in the Homeroom app's iframe): no blob:
   //   URL at all. One opened inside a frame belongs to the frame's storage
   //   partition, so a new top-level tab cannot resolve it and renders
-  //   nothing. Instead open a blank tab and fill it with the PNG as a
-  //   data: URL, which the tab can show and long-press can save.
-  function savePng(blob) {
+  //   nothing. Instead open a blank tab and fill it with the file as a
+  //   data: URL, which the tab can show and long-press can save. That also
+  //   renders an image/svg+xml data URL.
+  function saveFile(blob, name) {
     if (!onPhone() || !framed()) {
       var url = URL.createObjectURL(blob);
       var anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = PNG_NAME;
+      anchor.download = name;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -485,7 +492,7 @@
     var reader = new FileReader();
     reader.onload = function () {
       var doc = tab.document;
-      doc.title = PNG_NAME;
+      doc.title = name;
       var img = doc.createElement('img');
       img.src = reader.result; // data: URL, so the tab can render it
       img.alt = 'QR code';
@@ -506,8 +513,11 @@
     reader.readAsDataURL(blob);
   }
 
-  downloadBtn.addEventListener('click', function () {
-    if (!currentCode) return;
+  // The one PNG drawing the download, copy and share actions all use: the
+  // same offscreen canvas the old download handler drew, 1024px nominal,
+  // fixed black on white with the picture (if any) drawn on top.
+  function pngCanvas() {
+    if (!currentCode) return null;
     var quiet = 4;
     var total = currentCode.size + quiet * 2;
     var scale = Math.max(1, Math.floor(1024 / total));
@@ -527,14 +537,108 @@
       }
     }
     drawLogo(ctx, currentCode.size, quiet, scale, '#ffffff');
+    return out;
+  }
+
+  downloadBtn.addEventListener('click', function () {
+    var out = pngCanvas();
+    if (!out) return;
     try {
       out.toBlob(function (blob) {
         if (!blob) {
           setCaption('The download failed. Try again.');
           return;
         }
-        if (onPhone() && sharePng(blob)) return;
-        savePng(blob);
+        if (onPhone() && sharePng(blob, 'Saved')) return;
+        saveFile(blob, PNG_NAME);
+      }, 'image/png');
+    } catch (err) {
+      setCaption('The download failed. Try again.');
+    }
+  });
+
+  // ── Download SVG: the same matrix, serialised on this device ─────────────
+
+  // Print wants the one format that stays sharp at any size. Made straight
+  // from the code, no new package, and never through the share sheet (SVG
+  // file sharing is poorly supported on phones).
+  downloadSvgBtn.addEventListener('click', function () {
+    if (!currentCode) return;
+    var options = {};
+    if (logoMode && logoCanvas) {
+      options.logo = {
+        href: logoCanvas.toDataURL('image/png'),
+        width: logoCanvas.width,
+        height: logoCanvas.height,
+      };
+    }
+    try {
+      var svg = window.QR.toSvg(currentCode, options);
+      saveFile(new Blob([svg], { type: 'image/svg+xml' }), SVG_NAME);
+    } catch (err) {
+      setCaption('The download failed. Try again.');
+    }
+  });
+
+  // ── Copy image: the PNG on the clipboard, if this browser can ────────────
+
+  var COPY_ERROR = 'Your browser blocked copying. Use Download PNG instead.';
+
+  // A browser that cannot put pictures on the clipboard at all (no
+  // ClipboardItem, e.g. some Firefoxes) never sees the button; one that can
+  // but refuses at tap time gets the error line instead.
+  var canCopy = !!(navigator.clipboard && navigator.clipboard.write && window.ClipboardItem);
+  copyBtn.hidden = !canCopy;
+
+  // The promise goes into the ClipboardItem, not a finished blob: Safari
+  // only honours a clipboard write made inside the tap, so it must be able
+  // to read the blob lazily.
+  copyBtn.addEventListener('click', function () {
+    var out = pngCanvas();
+    if (!out) return;
+    var blobPromise = new Promise(function (resolve) {
+      out.toBlob(function (blob) { resolve(blob); }, 'image/png');
+    });
+    try {
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })])
+        .then(function () {
+          if (window.unNative && typeof window.unNative.toast === 'function') {
+            window.unNative.toast('Copied');
+          } else {
+            setCaption('Copied');
+          }
+        }, function () {
+          setCaption(COPY_ERROR);
+        });
+    } catch (err) {
+      setCaption(COPY_ERROR);
+    }
+  });
+
+  // ── Share: the device's own share sheet, where it can take files ─────────
+
+  var canShareFiles = false;
+  try {
+    canShareFiles = !!(navigator.canShare && navigator.canShare({
+      files: [new File([''], PNG_NAME, { type: 'image/png' })],
+    }));
+  } catch (err) {
+    canShareFiles = false;
+  }
+  shareBtn.hidden = !canShareFiles;
+  // No Share means the grid would have a hole; Copy image fills the row.
+  if (!canShareFiles) copyBtn.classList.add('col-span-2');
+
+  shareBtn.addEventListener('click', function () {
+    var out = pngCanvas();
+    if (!out) return;
+    try {
+      out.toBlob(function (blob) {
+        if (!blob) {
+          setCaption('The download failed. Try again.');
+          return;
+        }
+        if (!sharePng(blob, 'Shared')) saveFile(blob, PNG_NAME);
       }, 'image/png');
     } catch (err) {
       setCaption('The download failed. Try again.');

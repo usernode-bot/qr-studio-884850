@@ -116,6 +116,50 @@ test('all eight masks decode cleanly through the declared mask', () => {
   }
 });
 
+test('toSvg: viewBox includes the quiet zone', () => {
+  const qr = QR.encode(utf8('HELLO')); // size 21, plus 4+4 quiet = 29
+  const svg = QR.toSvg(qr);
+  assert.ok(svg.includes('viewBox="0 0 29 29"'), svg.slice(0, 200));
+  assert.ok(svg.includes('width="' + 29 * Math.floor(1024 / 29) + '"'));
+  assert.ok(svg.includes('height="' + 29 * Math.floor(1024 / 29) + '"'));
+});
+
+test('toSvg: one subpath per dark module', () => {
+  const qr = QR.encode(utf8('HELLO'));
+  const svg = QR.toSvg(qr);
+  let dark = 0;
+  for (const row of qr.modules) for (const cell of row) if (cell) dark++;
+  assert.equal(svg.split('h1v1h-1z').length - 1, dark);
+  // Every coordinate sits inside the quiet-zone frame.
+  for (const match of svg.matchAll(/M(\d+) (\d+)h1v1h-1z/g)) {
+    assert.ok(+match[1] >= 4 && +match[1] < qr.size + 4, `x ${match[1]}`);
+    assert.ok(+match[2] >= 4 && +match[2] < qr.size + 4, `y ${match[2]}`);
+  }
+});
+
+test('toSvg: black on white', () => {
+  const svg = QR.toSvg(QR.encode(utf8('HELLO')));
+  assert.ok(svg.includes('fill="#ffffff"'), 'white background');
+  assert.ok(svg.includes('fill="#000000"'), 'black modules');
+});
+
+test('toSvg: logo only when given, href escaped', () => {
+  const qr = QR.encode(utf8('HELLO'));
+  const plain = QR.toSvg(qr);
+  assert.ok(!plain.includes('<image'), 'no image without a logo');
+  const href = 'data:image/png;base64,AA=="&<x>';
+  const withLogo = QR.toSvg(qr, { logo: { href, width: 60, height: 40 } });
+  assert.equal(withLogo.split('<image').length - 1, 1);
+  assert.ok(withLogo.includes('href="data:image/png;base64,AA==&quot;&amp;&lt;x>"'),
+    'href is attribute-escaped');
+  // White square of a fifth of the matrix's width: side 21/5, centred.
+  const b = qr.size / 5;
+  const x0 = 4 + (qr.size - b) / 2;
+  assert.ok(withLogo.includes(`width="${b}" height="${b}"`), 'white square side');
+  assert.ok(withLogo.includes(`x="${x0}" y="${x0}"`), 'white square centred');
+  assert.ok(withLogo.includes('preserveAspectRatio="xMidYMid meet"'), 'aspect kept');
+});
+
 test('UTF-8 multibyte content encodes', () => {
   const qr = QR.encode(utf8('héllo wörld — café ☕'));
   assert.equal(qr.size % 4, 1); // sizes are 4v+17, so 21, 25, 29, ...
