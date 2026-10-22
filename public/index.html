@@ -213,7 +213,21 @@
       </div>
     </section>
 
-    <p class="text-center text-small text-muted">Codes are made on your device. Nothing you type or choose is saved.</p>
+    <!-- History: kept in this browser only (localStorage), never sent anywhere -->
+    <section id="history" aria-labelledby="history-title" class="flex flex-col gap-2">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="history-title" class="text-heading">History</h2>
+        <button id="history-clear" type="button" class="btn-secondary" hidden>Clear all</button>
+      </div>
+      <ul id="history-list" class="list" hidden></ul>
+      <div id="history-empty" class="state-empty">
+        <p class="font-medium">No saved codes yet</p>
+        <p class="text-small text-muted">A code is saved here when you download, copy or share it.</p>
+      </div>
+      <p id="history-error" hidden class="px-1 text-small text-muted"></p>
+    </section>
+
+    <p class="text-center text-small text-muted">Codes are made on your device and nothing you type is sent anywhere. History is kept in this browser only.</p>
   </main>
 </body>
 </html>

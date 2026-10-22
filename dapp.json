@@ -34,6 +34,12 @@
       "path": "/?demo=1",
       "expectSelector": "#download-svg",
       "expectText": "Download SVG"
+    },
+    {
+      "name": "Staging demo shows History",
+      "path": "/?demo=1",
+      "expectSelector": "#history-list:not([hidden]) .list-row",
+      "expectText": "History"
     }
   ],
   "admins": [

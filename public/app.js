@@ -554,6 +554,7 @@
   downloadBtn.addEventListener('click', function () {
     var out = pngCanvas();
     if (!out) return;
+    saveToHistory();
     try {
       out.toBlob(function (blob) {
         if (!blob) {
@@ -576,6 +577,7 @@
   downloadSvgBtn.addEventListener('click', function () {
     if (timer) updateNow();
     if (!currentCode) return;
+    saveToHistory();
     var options = {};
     if (logoMode && logoCanvas) {
       options.logo = {
@@ -608,6 +610,7 @@
   copyBtn.addEventListener('click', function () {
     var out = pngCanvas();
     if (!out) return;
+    saveToHistory();
     var blobPromise = new Promise(function (resolve) {
       out.toBlob(function (blob) { resolve(blob); }, 'image/png');
     });
@@ -644,6 +647,7 @@
   shareBtn.addEventListener('click', function () {
     var out = pngCanvas();
     if (!out) return;
+    saveToHistory();
     try {
       out.toBlob(function (blob) {
         if (!blob) {
@@ -656,6 +660,157 @@
       setCaption('The download failed. Try again.');
     }
   });
+
+
+  // ── History: kept in this browser (localStorage) and nowhere else ────────
+
+  var HISTORY_KEY = 'qr-studio-history-v1';
+  var HISTORY_MAX = 50;
+  var historyList = document.getElementById('history-list');
+  var historyEmpty = document.getElementById('history-empty');
+  var historyError = document.getElementById('history-error');
+  var historyClear = document.getElementById('history-clear');
+  var MODE_LABELS = { link: 'Link', text: 'Text', contact: 'Contact', image: 'Image' };
+  var memoryHistory = null; // staging demo: history lives in memory only
+
+  function loadHistory() {
+    if (memoryHistory) return memoryHistory;
+    try {
+      var list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      return Array.isArray(list) ? list.filter(function (e) {
+        return e && MODE_LABELS[e.mode] && e.v && typeof e.id === 'string';
+      }) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  // Returns false when this browser refuses to keep it (storage blocked).
+  function storeHistory(list) {
+    if (memoryHistory) { memoryHistory = list; return true; }
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  // What the form holds for the current option. The picture is never kept.
+  function snapshotFields() {
+    if (mode === 'link') return { link: fields.link.value.trim() };
+    if (mode === 'image') return { link: fields['image-link'].value.trim() };
+    if (mode === 'text') return { text: fields.text.value };
+    return {
+      name: fields['contact-name'].value.trim(),
+      phone: fields['contact-phone'].value.trim(),
+      email: fields['contact-email'].value.trim(),
+    };
+  }
+
+  function entryTitle(e) {
+    if (e.mode === 'text') return cut(e.v.text.trim().split(/\r?\n/)[0], 60);
+    if (e.mode === 'contact') return e.v.name;
+    return cut(e.v.link.replace(/^https?:\/\//i, '').replace(/\/$/, ''), 60);
+  }
+
+  function entryKey(e) {
+    return e.mode + '\n' + JSON.stringify(e.v);
+  }
+
+  // Called when a code is downloaded, copied or shared. The same code again
+  // moves to the top instead of adding a second row.
+  function saveToHistory() {
+    if (!currentCode) return;
+    var entry = { id: String(Date.now()) + Math.random().toString(36).slice(2, 6),
+      mode: mode, v: snapshotFields(), ts: Date.now() };
+    var key = entryKey(entry);
+    var list = loadHistory().filter(function (e) { return entryKey(e) !== key; });
+    list.unshift(entry);
+    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+    historyError.hidden = storeHistory(list);
+    historyError.textContent = "This browser wouldn't keep the history, so this code was not saved.";
+    renderHistory();
+  }
+
+  function reopenFromHistory(e) {
+    var radio = document.querySelector('input[name="mode"][value="' + e.mode + '"]');
+    if (radio) radio.checked = true;
+    setMode(e.mode);
+    if (e.mode === 'link') fields.link.value = e.v.link;
+    if (e.mode === 'image') fields['image-link'].value = e.v.link;
+    if (e.mode === 'text') { fields.text.value = e.v.text; updateCounter(); }
+    if (e.mode === 'contact') {
+      fields['contact-name'].value = e.v.name;
+      fields['contact-phone'].value = e.v.phone;
+      fields['contact-email'].value = e.v.email;
+    }
+    updateNow();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function removeFromHistory(id) {
+    storeHistory(loadHistory().filter(function (e) { return e.id !== id; }));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    var list = loadHistory();
+    historyList.textContent = '';
+    historyList.hidden = !list.length;
+    historyEmpty.hidden = !!list.length;
+    historyClear.hidden = !list.length;
+    list.forEach(function (e) {
+      var li = document.createElement('li');
+      li.className = 'list-row';
+      var open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'min-h-11 min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus';
+      var title = document.createElement('span');
+      title.className = 'block truncate text-body';
+      title.textContent = entryTitle(e);
+      var meta = document.createElement('span');
+      meta.className = 'block text-small text-muted';
+      var when = new Date(e.ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      meta.textContent = MODE_LABELS[e.mode] + ' · ' + when;
+      open.appendChild(title);
+      open.appendChild(meta);
+      open.setAttribute('aria-label', 'Open ' + MODE_LABELS[e.mode].toLowerCase() + ' code: ' + entryTitle(e));
+      open.addEventListener('click', function () { reopenFromHistory(e); });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn-secondary';
+      del.textContent = 'Delete';
+      del.setAttribute('aria-label', 'Delete ' + entryTitle(e) + ' from history');
+      del.addEventListener('click', function () { removeFromHistory(e.id); });
+      li.appendChild(open);
+      li.appendChild(del);
+      historyList.appendChild(li);
+    });
+  }
+
+  function clearHistory() {
+    storeHistory([]);
+    renderHistory();
+  }
+
+  historyClear.addEventListener('click', function () {
+    var message = 'This removes every saved code from this browser.';
+    if (window.unNative && typeof window.unNative.alert === 'function') {
+      window.unNative.alert({
+        title: 'Clear all history?',
+        message: message,
+        buttons: [
+          { label: 'Cancel', style: 'cancel' },
+          { label: 'Clear all', style: 'destructive', handler: clearHistory },
+        ],
+      });
+    } else if (window.confirm('Clear all history? ' + message)) {
+      clearHistory();
+    }
+  });
+
+  renderHistory();
 
   // ── Staging demo (?demo=1 fills the screen with sample content) ──────────
 
@@ -672,8 +827,17 @@
     }
     var noteEl = document.getElementById('demo-note');
     noteEl.innerHTML = '<strong class="font-semibold text-fg">Staging demo</strong>: ' +
-      'a sample link, text and contact are filled in.';
+      'a sample link, text and contact are filled in, with sample history.';
     noteEl.hidden = false;
+    // Sample history lives in memory only, so nothing is written to storage.
+    var t = Date.now();
+    memoryHistory = [
+      { id: 'demo-1', mode: 'link', v: { link: demo.link }, ts: t - 3600000 },
+      { id: 'demo-2', mode: 'text', v: { text: demo.text }, ts: t - 86400000 },
+      { id: 'demo-3', mode: 'contact', v: { name: demo.contact.name, phone: demo.contact.phone,
+        email: demo.contact.email }, ts: t - 172800000 },
+    ];
+    renderHistory();
     updateNow();
   }
 

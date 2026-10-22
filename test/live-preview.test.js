@@ -43,3 +43,11 @@ test('app.js updates live with a 300 ms debounce and no stale-code logic', () =>
 test('the stylesheet no longer dims a stale frame', () => {
   assert.ok(!css.includes('is-stale'), 'no .is-stale rules left');
 });
+test('history is kept on the device and saved from the download, copy and share actions', () => {
+  assert.ok(html.includes('id="history-list"') && html.includes('id="history-clear"'), 'history markup');
+  assert.ok(app.includes('localStorage'), 'stored in the browser');
+  assert.ok(!/fetch\([^)]*history/i.test(app), 'history is never sent anywhere');
+  const saves = app.match(/saveToHistory\(\);/g) || [];
+  assert.ok(saves.length >= 4, 'PNG, SVG, copy and share all save');
+  assert.ok(!html.includes('Nothing you type or choose is saved'), 'footer no longer says nothing is saved');
+});
